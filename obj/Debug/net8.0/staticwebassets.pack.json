@@ -1,0 +1,49 @@
+{
+  "Files": [
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\obj\\Debug\\net8.0\\scopedcss\\projectbundle\\VulpesFormsApp.bundle.scp.css",
+      "PackagePath": "staticwebassets\\VulpesFormsApp.bundle.scp.css"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\app.css",
+      "PackagePath": "staticwebassets\\app.css"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\bootstrap\\bootstrap.min.css",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\bootstrap\\bootstrap.min.css.map",
+      "PackagePath": "staticwebassets\\bootstrap\\bootstrap.min.css.map"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\data\\attorneys.json",
+      "PackagePath": "staticwebassets\\data\\attorneys.json"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\favicon.png",
+      "PackagePath": "staticwebassets\\favicon.png"
+    },
+    {
+      "Id": "C:\\Users\\PRIVATE\\OneDrive\\Documents\\Coding\\Red Hot Zone\\VulpesFormsApp\\wwwroot\\js\\signature.js",
+      "PackagePath": "staticwebassets\\js\\signature.js"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.VulpesFormsApp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.build.VulpesFormsApp.props",
+      "PackagePath": "build\\VulpesFormsApp.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildMultiTargeting.VulpesFormsApp.props",
+      "PackagePath": "buildMultiTargeting\\VulpesFormsApp.props"
+    },
+    {
+      "Id": "obj\\Debug\\net8.0\\staticwebassets\\msbuild.buildTransitive.VulpesFormsApp.props",
+      "PackagePath": "buildTransitive\\VulpesFormsApp.props"
+    }
+  ],
+  "ElementsToRemove": []
+}
