@@ -1,0 +1,248 @@
+@page "/weekly-questionnaire"
+@using VulpesFormsApp.Models
+@using VulpesFormsApp.Services
+@inject N8nWebhookService WebhookService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+
+<PageTitle>Weekly Questionnaire</PageTitle>
+
+<div class="container">
+<div class="row justify-content-center">
+<div class="col-md-8">
+    <h2 class="mb-4" style="color: #1a3c5e;">Weekly Questionnaire</h2>
+
+    <EditForm Model="form" OnValidSubmit="HandleSubmit" FormName="WeeklyQuestionnaire">
+        <DataAnnotationsValidator />
+
+        @* Name *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Name <span class="text-danger">*</span></label>
+            <div class="row g-2">
+                <div class="col"><InputText @bind-Value="form.FirstName" class="form-control" placeholder="First Name" /></div>
+                <div class="col"><InputText @bind-Value="form.LastName" class="form-control" placeholder="Last Name" /></div>
+            </div>
+        </div>
+
+        @* Date *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Today's Date</label>
+            <InputDate @bind-Value="todaysDate" class="form-control" style="max-width:220px" />
+        </div>
+
+        @* Reports *@
+        <h5 class="mt-4">How many Reports have you completed this week?</h5>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Reports Completed</label>
+            <InputNumber @bind-Value="form.ReportsCompleted" class="form-control" style="max-width:120px" min="0" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Ref Codes for Reports</label>
+            @RenderRefTable(form.ReportsRefCodes)
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => form.ReportsRefCodes.Add(new RefCodeRow())">+ Add Row</button>
+        </div>
+
+        @* Skeletons *@
+        <h5 class="mt-4">How many Skeletons have you completed this week?</h5>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Skeletons Completed</label>
+            <InputNumber @bind-Value="form.SkeletonsCompleted" class="form-control" style="max-width:120px" min="0" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Ref Codes for Skeletons</label>
+            @RenderRefTable(form.SkeletonsRefCodes)
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => form.SkeletonsRefCodes.Add(new RefCodeRow())">+ Add Row</button>
+        </div>
+
+        @* Add-ons *@
+        <h5 class="mt-4">How many Additional Services did you complete this week?</h5>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Add-ons Completed</label>
+            <InputNumber @bind-Value="form.AddonsCompleted" class="form-control" style="max-width:120px" min="0" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Ref Codes for Add-ons</label>
+            @RenderRefTable(form.AddonsRefCodes)
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => form.AddonsRefCodes.Add(new RefCodeRow())">+ Add Row</button>
+        </div>
+
+        @* Ratings *@
+        @foreach (var (label, getter, setter) in ratingFields)
+        {
+            <div class="mb-3">
+                <label class="form-label fw-bold">@label</label>
+                <select class="form-select" value="@getter()" @onchange="@(e => setter(e.Value?.ToString() ?? ""))">
+                    <option value="">Please Select</option>
+                    <option>Poor</option><option>Below Average</option><option>Average</option>
+                    <option>Good</option><option>Excellent</option>
+                </select>
+            </div>
+        }
+
+        @* Feedback *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">What was your key achievement this week? <span class="text-danger">*</span></label>
+            <InputTextArea @bind-Value="form.KeyAchievement" class="form-control" rows="3" />
+            <ValidationMessage For="() => form.KeyAchievement" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">What challenges did you face and how did you address them? <span class="text-danger">*</span></label>
+            <InputTextArea @bind-Value="form.Challenges" class="form-control" rows="3" />
+            <ValidationMessage For="() => form.Challenges" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">What is one area you'd like to improve for next week? <span class="text-danger">*</span></label>
+            <InputTextArea @bind-Value="form.ImprovementArea" class="form-control" rows="3" />
+            <ValidationMessage For="() => form.ImprovementArea" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Do you have any suggestions for company/operational improvements? <span class="text-danger">*</span></label>
+            <InputTextArea @bind-Value="form.Suggestions" class="form-control" rows="3" />
+            <ValidationMessage For="() => form.Suggestions" />
+        </div>
+
+        @* Signature Pad *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Signature</label>
+            <canvas id="signatureCanvas" class="border rounded" width="400" height="150" style="cursor:crosshair; display:block;"></canvas>
+            <button type="button" class="btn btn-sm btn-outline-secondary mt-1" @onclick="ClearSignature">Clear</button>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" disabled="@submitting">
+            @if (submitting) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Submit
+        </button>
+    </EditForm>
+</div>
+</div>
+</div>
+
+@code {
+    private WeeklyQuestionnaireModel form = new();
+    private DateTime? todaysDate = DateTime.Today;
+    private bool submitting = false;
+
+    private List<(string label, Func<string> getter, Action<string> setter)> ratingFields = new();
+
+    protected override void OnInitialized()
+    {
+        form.ReportsRefCodes.Add(new RefCodeRow());
+        form.SkeletonsRefCodes.Add(new RefCodeRow());
+        form.AddonsRefCodes.Add(new RefCodeRow());
+
+        ratingFields = new()
+        {
+            ("How would you rate the overall quality of your reports this week?", () => form.QualityRating, v => form.QualityRating = v),
+            ("How would you rate your adherence to service submission deadlines this week?", () => form.DeadlineRating, v => form.DeadlineRating = v),
+            ("How would you rate your responsiveness to communications this week?", () => form.ResponsivenessRating, v => form.ResponsivenessRating = v)
+        };
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync("initSignaturePad");
+        }
+    }
+
+    private RenderFragment RenderRefTable(List<RefCodeRow> rows) => builder =>
+    {
+        builder.OpenElement(0, "table");
+        builder.AddAttribute(1, "class", "table table-bordered table-sm");
+        builder.OpenElement(2, "thead");
+        builder.AddAttribute(3, "class", "table-light");
+        builder.OpenElement(4, "tr");
+        builder.OpenElement(5, "th"); builder.AddContent(6, "Vulpes Ref Codes"); builder.CloseElement();
+        builder.OpenElement(7, "th"); builder.CloseElement();
+        builder.CloseElement(); // tr
+        builder.CloseElement(); // thead
+        builder.OpenElement(8, "tbody");
+        for (int i = 0; i < rows.Count; i++)
+        {
+            var index = i;
+            builder.OpenElement(9, "tr");
+            builder.OpenElement(10, "td");
+            builder.OpenComponent<InputText>(11);
+            builder.AddAttribute(12, "Value", rows[index].VulpesRefCode);
+            builder.AddAttribute(13, "ValueChanged", EventCallback.Factory.Create<string>(this, value => rows[index].VulpesRefCode = value));
+            builder.AddAttribute(14, "ValueExpression", (System.Linq.Expressions.Expression<Func<string>>)(() => rows[index].VulpesRefCode));
+            builder.AddAttribute(15, "class", "form-control form-control-sm");
+            builder.AddAttribute(16, "placeholder", "e.g. ADK-1002");
+            builder.CloseComponent();
+            builder.CloseElement(); // td
+            builder.OpenElement(17, "td");
+            builder.OpenElement(18, "button");
+            builder.AddAttribute(19, "type", "button");
+            builder.AddAttribute(20, "class", "btn btn-sm btn-outline-danger");
+            builder.AddAttribute(21, "onclick", EventCallback.Factory.Create(this, () => rows.RemoveAt(index)));
+            builder.AddContent(22, "✕");
+            builder.CloseElement(); // button
+            builder.CloseElement(); // td
+            builder.CloseElement(); // tr
+        }
+        builder.CloseElement(); // tbody
+        builder.CloseElement(); // table
+    };
+
+    private async Task ClearSignature()
+    {
+        await JS.InvokeVoidAsync("clearSignature");
+    }
+
+    private async Task HandleSubmit()
+    {
+        submitting = true;
+
+        form.Date = todaysDate?.ToString("yyyy-MM-dd") ?? "";
+        form.SignatureBase64 = await JS.InvokeAsync<string>("getSignatureData");
+
+        var allRefCodes = form.ReportsRefCodes
+            .Concat(form.SkeletonsRefCodes)
+            .Concat(form.AddonsRefCodes)
+            .Select(r => r.VulpesRefCode)
+            .Where(s => !string.IsNullOrEmpty(s))
+            .ToList();
+
+        var payload = new
+        {
+            formTitle = "Weekly Questionnaire",
+            submittedAt = DateTime.UtcNow.ToString("o"),
+            ip = "server-submitted",
+
+            name = $"{form.FirstName} {form.LastName}".Trim(),
+            firstName = form.FirstName,
+            lastName = form.LastName,
+            date = form.Date,
+
+            reportsCompleted = form.ReportsCompleted,
+            reportsRefCodes = form.ReportsRefCodes.Where(r => !string.IsNullOrEmpty(r.VulpesRefCode))
+                .Select(r => new { VulpesRefCodes = r.VulpesRefCode }).ToList(),
+            skeletonsCompleted = form.SkeletonsCompleted,
+            skeletonsRefCodes = form.SkeletonsRefCodes.Where(r => !string.IsNullOrEmpty(r.VulpesRefCode))
+                .Select(r => new { VulpesRefCodes = r.VulpesRefCode }).ToList(),
+            addonsCompleted = form.AddonsCompleted,
+            addonsRefCodes = form.AddonsRefCodes.Where(r => !string.IsNullOrEmpty(r.VulpesRefCode))
+                .Select(r => new { VulpesRefCodes = r.VulpesRefCode }).ToList(),
+
+            qualityRating = form.QualityRating,
+            deadlineAdherenceRating = form.DeadlineRating,
+            responsivenessRating = form.ResponsivenessRating,
+
+            keyAchievement = form.KeyAchievement,
+            challenges = form.Challenges,
+            improvementArea = form.ImprovementArea,
+            suggestions = form.Suggestions,
+
+            signatureBase64 = form.SignatureBase64,
+            hasSignature = !string.IsNullOrEmpty(form.SignatureBase64),
+            allRefCodes = allRefCodes,
+            totalItemsCompleted = form.ReportsCompleted + form.SkeletonsCompleted + form.AddonsCompleted
+        };
+
+        var success = await WebhookService.SendToWebhookAsync("WeeklyQuestionnaire", payload);
+        submitting = false;
+        Navigation.NavigateTo($"/confirmation?FormName=Weekly Questionnaire&Success={success}");
+    }
+}
