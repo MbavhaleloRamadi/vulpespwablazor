@@ -1,0 +1,333 @@
+@page "/new-booking"
+@using VulpesFormsApp.Models
+@using VulpesFormsApp.Services
+@inject N8nWebhookService WebhookService
+@inject AttorneyDataService AttorneyService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>New Booking Form</PageTitle>
+
+<div class="container">
+<div class="row justify-content-center">
+<div class="col-md-8">
+    <h2 class="mb-4" style="color: #1a3c5e;">New Booking Form</h2>
+
+    <EditForm Model="form" OnValidSubmit="HandleSubmit" FormName="NewBookingForm">
+        <DataAnnotationsValidator />
+
+        @* Plaintiff Type *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Is this a new or existing plaintiff? <span class="text-danger">*</span></label>
+            <div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="plaintiffType" id="ptNew" value="New Plaintiff"
+                           @onchange="@(() => form.PlaintiffType = "New Plaintiff")"
+                           checked="@(form.PlaintiffType == "New Plaintiff")" />
+                    <label class="form-check-label" for="ptNew">New Plaintiff</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="radio" name="plaintiffType" id="ptExisting" value="Existing Plaintiff"
+                           @onchange="@(() => form.PlaintiffType = "Existing Plaintiff")"
+                           checked="@(form.PlaintiffType == "Existing Plaintiff")" />
+                    <label class="form-check-label" for="ptExisting">Existing Plaintiff</label>
+                </div>
+            </div>
+            <ValidationMessage For="() => form.PlaintiffType" />
+        </div>
+
+        @* Plaintiff Name *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Plaintiff Name <span class="text-danger">*</span></label>
+            <div class="row g-2">
+                <div class="col-2">
+                    <InputSelect @bind-Value="form.NamePrefix" class="form-select form-select-sm">
+                        <option value="">Prefix</option>
+                        <option>Mr</option><option>Mrs</option><option>Ms</option><option>Dr</option><option>Adv</option>
+                    </InputSelect>
+                </div>
+                <div class="col"><InputText @bind-Value="form.FirstName" class="form-control" placeholder="First Name" /></div>
+                <div class="col"><InputText @bind-Value="form.MiddleName" class="form-control" placeholder="Middle Name" /></div>
+                <div class="col"><InputText @bind-Value="form.LastName" class="form-control" placeholder="Last Name" /></div>
+                <div class="col-2"><InputText @bind-Value="form.NameSuffix" class="form-control" placeholder="Suffix" /></div>
+            </div>
+        </div>
+
+        @* Conditional: New Plaintiff *@
+        @if (form.PlaintiffType == "New Plaintiff")
+        {
+            <div class="mb-3">
+                <label class="form-label fw-bold">Plaintiff ID Number</label>
+                <InputText @bind-Value="form.PlaintiffIdNumber" class="form-control" maxlength="13" />
+            </div>
+        }
+
+        @* Conditional: Existing Plaintiff *@
+        @if (form.PlaintiffType == "Existing Plaintiff")
+        {
+            <div class="mb-3">
+                <label class="form-label fw-bold">Do You Know Plaintiff Reference Number?</label>
+                <InputSelect @bind-Value="form.KnowsReference" class="form-select">
+                    <option value="">Please Select</option>
+                    <option value="Yes">Yes</option>
+                    <option value="No">No</option>
+                </InputSelect>
+            </div>
+
+            @if (form.KnowsReference == "Yes")
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Enter Plaintiff Vulpes Reference Number</label>
+                    <InputText @bind-Value="form.VulpesReferenceNumber" class="form-control" />
+                    <small class="text-danger">IMPORTANT! Make sure you verify the Ref Number or Plaintiff won't be updated.</small>
+                </div>
+            }
+
+            @if (form.KnowsReference == "No")
+            {
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Enter Plaintiff ID Number</label>
+                    <InputText @bind-Value="form.PlaintiffIdForExisting" class="form-control" maxlength="13" />
+                </div>
+            }
+        }
+
+        @* Assessment Date *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Assessment Date</label>
+            <InputDate @bind-Value="assessmentDate" class="form-control" style="max-width:220px" />
+        </div>
+
+        @* Location *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Location - Assessment</label>
+            <InputSelect @bind-Value="form.Location" class="form-select">
+                <option value="">Please Select</option>
+                <option>Nelspruit</option><option>Pretoria</option><option>Ballito</option>
+                <option>Durban</option><option>Cape Town</option><option>Online</option>
+            </InputSelect>
+        </div>
+
+        @* Attorney Firm (searchable) *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Attorney Firm</label>
+            <InputText @bind-Value="form.AttorneyFirm" class="form-control" placeholder="Start typing to search..."
+                       @oninput="OnAttorneySearch" />
+            @if (attorneyResults.Any())
+            {
+                <div class="list-group mt-1 shadow-sm" style="position:absolute; z-index:100; max-height:200px; overflow-y:auto;">
+                    @foreach (var firm in attorneyResults)
+                    {
+                        <button type="button" class="list-group-item list-group-item-action"
+                                @onclick="@(() => SelectAttorney(firm))">@firm</button>
+                    }
+                </div>
+            }
+        </div>
+
+        @* Attorney Reference *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Attorney Reference</label>
+            <InputText @bind-Value="form.AttorneyReference" class="form-control" />
+        </div>
+
+        @* Instructing Attorney *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Instructing Attorney</label>
+            <div class="row g-2">
+                <div class="col-2">
+                    <InputSelect @bind-Value="form.InstructingAttorneyPrefix" class="form-select form-select-sm">
+                        <option value="">Prefix</option>
+                        <option>Mr</option><option>Mrs</option><option>Ms</option><option>Dr</option><option>Adv</option>
+                    </InputSelect>
+                </div>
+                <div class="col"><InputText @bind-Value="form.InstructingAttorneyFirst" class="form-control" placeholder="First Name" /></div>
+                <div class="col"><InputText @bind-Value="form.InstructingAttorneyLast" class="form-control" placeholder="Last Name" /></div>
+            </div>
+        </div>
+
+        @* Instructing Date *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Instructing Date</label>
+            <InputDate @bind-Value="instructingDate" class="form-control" style="max-width:220px" />
+        </div>
+
+        @* Services Dynamic Table *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Services</label>
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Services</th><th>Active?</th><th>Assessment Date</th>
+                        <th>Assessment Time</th><th>Notify Someone</th><th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < form.Services.Count; i++)
+                    {
+                        var index = i;
+                        <tr>
+                            <td>
+                                <InputSelect @bind-Value="form.Services[index].Service" class="form-select form-select-sm">
+                                    <option value="">Choose Service</option>
+                                    @foreach (var s in serviceOptions)
+                                    {
+                                        <option>@s</option>
+                                    }
+                                </InputSelect>
+                            </td>
+                            <td>
+                                <InputSelect @bind-Value="form.Services[index].Active" class="form-select form-select-sm">
+                                    <option value="">Select</option>
+                                    <option>Yes</option><option>No</option>
+                                </InputSelect>
+                            </td>
+                            <td><InputDate @bind-Value="serviceDates[index]" class="form-control form-control-sm" /></td>
+                            <td><InputText @bind-Value="form.Services[index].AssessmentTime" class="form-control form-control-sm" placeholder="e.g. 09:00 AM" /></td>
+                            <td><InputText @bind-Value="form.Services[index].NotifyEmail" class="form-control form-control-sm" placeholder="email" /></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveService(index)">✕</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="AddService">+ Add Service</button>
+        </div>
+
+        @* Notes *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Notes</label>
+            <InputTextArea @bind-Value="form.Notes" class="form-control" rows="4" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" disabled="@submitting">
+            @if (submitting) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Submit
+        </button>
+    </EditForm>
+</div>
+</div>
+</div>
+
+@code {
+    private NewBookingFormModel form = new();
+    private DateTime? assessmentDate;
+    private DateTime? instructingDate;
+    private List<DateTime?> serviceDates = new();
+    private List<string> attorneyResults = new();
+    private bool submitting = false;
+
+    private readonly string[] serviceOptions = { "IP", "OT", "EP", "CLP", "NP", "AC",
+        "Reassessment", "Amendment", "Addendum", "Joint Minutes", "Pre-trial", "Trial" };
+
+    protected override void OnInitialized()
+    {
+        AddService();
+    }
+
+    private void AddService()
+    {
+        form.Services.Add(new ServiceRow());
+        serviceDates.Add(null);
+    }
+
+    private void RemoveService(int index)
+    {
+        form.Services.RemoveAt(index);
+        serviceDates.RemoveAt(index);
+    }
+
+    private void OnAttorneySearch(ChangeEventArgs e)
+    {
+        form.AttorneyFirm = e.Value?.ToString() ?? "";
+        attorneyResults = AttorneyService.Search(form.AttorneyFirm);
+    }
+
+    private void SelectAttorney(string firm)
+    {
+        form.AttorneyFirm = firm;
+        attorneyResults.Clear();
+    }
+
+    private async Task HandleSubmit()
+    {
+        submitting = true;
+
+        // Sync dates
+        form.AssessmentDate = assessmentDate?.ToString("yyyy-MM-dd") ?? "";
+        form.InstructingDate = instructingDate?.ToString("yyyy-MM-dd") ?? "";
+        for (int i = 0; i < form.Services.Count; i++)
+        {
+            form.Services[i].AssessmentDate = serviceDates[i]?.ToString("yyyy-MM-dd") ?? "";
+        }
+
+        var payload = new
+        {
+            formTitle = "New Booking Form",
+            submittedAt = DateTime.UtcNow.ToString("o"),
+            ip = "server-submitted",
+
+            plaintiff = new
+            {
+                type = form.PlaintiffType,
+                isNew = form.PlaintiffType == "New Plaintiff",
+                isExisting = form.PlaintiffType == "Existing Plaintiff",
+                name = new
+                {
+                    prefix = form.NamePrefix,
+                    first = form.FirstName,
+                    middle = form.MiddleName,
+                    last = form.LastName,
+                    suffix = form.NameSuffix,
+                    full = string.Join(" ", new[] {
+                        form.NamePrefix, form.FirstName, form.MiddleName,
+                        form.LastName, form.NameSuffix
+                    }.Where(s => !string.IsNullOrWhiteSpace(s)))
+                },
+                idNumber = form.PlaintiffIdNumber,
+                knowsReference = form.KnowsReference == "Yes",
+                vulpesReference = form.VulpesReferenceNumber,
+                alternativeReference = form.PlaintiffIdForExisting
+            },
+
+            assessment = new
+            {
+                assessmentDate = form.AssessmentDate,
+                location = form.Location,
+                notes = form.Notes
+            },
+
+            attorney = new
+            {
+                firm = form.AttorneyFirm,
+                reference = form.AttorneyReference,
+                name = new
+                {
+                    prefix = form.InstructingAttorneyPrefix,
+                    first = form.InstructingAttorneyFirst,
+                    last = form.InstructingAttorneyLast,
+                    full = string.Join(" ", new[] {
+                        form.InstructingAttorneyPrefix,
+                        form.InstructingAttorneyFirst,
+                        form.InstructingAttorneyLast
+                    }.Where(s => !string.IsNullOrWhiteSpace(s)))
+                },
+                instructingDate = form.InstructingDate
+            },
+
+            services = form.Services.Where(s => !string.IsNullOrEmpty(s.Service)).Select(s => new
+            {
+                service = s.Service,
+                active = s.Active == "Yes",
+                assessmentDate = s.AssessmentDate,
+                assessmentTime = s.AssessmentTime,
+                reportDate = "",
+                reportTime = "",
+                notify = s.NotifyEmail
+            }).ToList()
+        };
+
+        var success = await WebhookService.SendToWebhookAsync("NewBookingForm", payload);
+        submitting = false;
+        Navigation.NavigateTo($"/confirmation?FormName=New Booking&Success={success}");
+    }
+}
