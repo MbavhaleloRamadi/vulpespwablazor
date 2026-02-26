@@ -1,0 +1,144 @@
+@page "/attorneys"
+@using VulpesFormsApp.Models
+@using VulpesFormsApp.Services
+@inject N8nWebhookService WebhookService
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+
+<PageTitle>Attorneys</PageTitle>
+
+<div class="container">
+<div class="row justify-content-center">
+<div class="col-md-8">
+    <h2 class="mb-4" style="color: #1a3c5e;">Attorneys</h2>
+    <div class="alert alert-info">
+        We strongly advise that you first check if the attorney firm does not already exist.
+        You can do this by searching the Attorney Board on monday.com
+    </div>
+
+    <EditForm Model="form" OnValidSubmit="HandleSubmit" FormName="AttorneysForm">
+        <DataAnnotationsValidator />
+
+        <div class="mb-3">
+            <label class="form-label fw-bold">Your Name</label>
+            <InputText @bind-Value="form.YourName" class="form-control" />
+            <ValidationMessage For="() => form.YourName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Firm Name</label>
+            <InputText @bind-Value="form.FirmName" class="form-control" />
+            <ValidationMessage For="() => form.FirmName" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label fw-bold">Attorney Code</label>
+            <InputText @bind-Value="form.AttorneyCode" class="form-control" />
+            <ValidationMessage For="() => form.AttorneyCode" />
+        </div>
+
+        @* Firm Contacts Dynamic Table *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Firm Contacts</label>
+            <table class="table table-bordered table-sm">
+                <thead class="table-light">
+                    <tr><th>Role</th><th>Name and Surname</th><th>Email</th><th>Phone Number</th><th></th></tr>
+                </thead>
+                <tbody>
+                    @for (int i = 0; i < form.FirmContacts.Count; i++)
+                    {
+                        var index = i;
+                        <tr>
+                            <td><InputText @bind-Value="form.FirmContacts[index].Role" class="form-control form-control-sm" /></td>
+                            <td><InputText @bind-Value="form.FirmContacts[index].NameAndSurname" class="form-control form-control-sm" /></td>
+                            <td><InputText @bind-Value="form.FirmContacts[index].Email" class="form-control form-control-sm" /></td>
+                            <td><InputText @bind-Value="form.FirmContacts[index].PhoneNumber" class="form-control form-control-sm" /></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => form.FirmContacts.RemoveAt(index)">✕</button></td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => form.FirmContacts.Add(new ContactRow())">+ Add Contact</button>
+        </div>
+
+        @* Service Level Agreement *@
+        <div class="mb-3">
+            <label class="form-label fw-bold">Service Level Agreement</label>
+            <div>
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="form.SlaCash" class="form-check-input" id="slaCash" />
+                    <label class="form-check-label" for="slaCash">Cash</label>
+                </div>
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="form.SlaDeposit" class="form-check-input" id="slaDeposit" />
+                    <label class="form-check-label" for="slaDeposit">Deposit</label>
+                </div>
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="form.SlaContingency" class="form-check-input" id="slaContingency" />
+                    <label class="form-check-label" for="slaContingency">Contingency</label>
+                </div>
+            </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg" disabled="@submitting">
+            @if (submitting) { <span class="spinner-border spinner-border-sm me-2"></span> }
+            Submit
+        </button>
+    </EditForm>
+</div>
+</div>
+</div>
+
+@code {
+    private AttorneysFormModel form = new();
+    private bool submitting = false;
+
+    protected override void OnInitialized()
+    {
+        form.FirmContacts.Add(new ContactRow());
+    }
+
+    private async Task HandleSubmit()
+    {
+        submitting = true;
+
+        var slaList = new List<string>();
+        if (form.SlaCash) slaList.Add("Cash");
+        if (form.SlaDeposit) slaList.Add("Deposit");
+        if (form.SlaContingency) slaList.Add("Contingency");
+
+        var contacts = form.FirmContacts
+            .Where(c => !string.IsNullOrEmpty(c.NameAndSurname))
+            .Select(c => new
+            {
+                role = c.Role,
+                name = c.NameAndSurname,
+                email = c.Email,
+                phone = c.PhoneNumber
+            }).ToList();
+
+        var payload = new
+        {
+            formTitle = "Attorneys",
+            submittedAt = DateTime.UtcNow.ToString("o"),
+            ip = "server-submitted",
+
+            yourName = form.YourName,
+            firmName = form.FirmName,
+            attorneyCode = form.AttorneyCode,
+            serviceLevel = slaList.FirstOrDefault() ?? "",
+
+            firmContacts = contacts.Select(c => new
+            {
+                c.role,
+                c.name,
+                c.email,
+                c.phone
+            }).ToList(),
+
+            primaryContact = contacts.Any() ? contacts.First() : new { role = "", name = "", email = "", phone = "" }
+        };
+
+        var success = await WebhookService.SendToWebhookAsync("Attorneys", payload);
+        submitting = false;
+        Navigation.NavigateTo($"/confirmation?FormName=Attorneys&Success={success}");
+    }
+}
